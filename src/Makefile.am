@@ -4,7 +4,7 @@ plugin_LTLIBRARIES = libgstccnx.la
 
 # sources used to compile this plug-in
 libgstccnx_la_SOURCES = \
-	gstCCNxSrc.cc \
+	gstCCNxSrc.c \
 	gstCCNxSrc.h
 
 # compiler and linker flags used to compile this plugin, set in configure.ac
