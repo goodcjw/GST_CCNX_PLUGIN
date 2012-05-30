@@ -229,13 +229,14 @@ gst_ccnx_utils_interest_prepare (GstCCNxInterestTempl * templ)
     /* <Lifetime>           */
     unsigned char buf[3] = { 0 };
     lifetime_l12 = templ->mLifetime;
-    for (i = sizeof(buf) - 1; i >= 0; i--, lifetime_l12 >>= 8)
-      buf[i] = lifetime_l12 & 0xff;
+    for (i = sizeof(buf); i > 0; i--, lifetime_l12 >>= 8)
+      buf[i-1] = lifetime_l12 & 0xff;
     ccnb_append_tagged_blob (intBuff, CCN_DTAG_InterestLifetime, buf, sizeof(buf));
     /* </Lifetime>          */
   }
   ccn_charbuf_append_closer (intBuff);
   /* </Interest>          */
+
   return intBuff;
 }
 

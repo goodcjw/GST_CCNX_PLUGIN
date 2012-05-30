@@ -32,7 +32,7 @@ typedef struct _GstCCNxDepacketizer GstCCNxDepacketizer;
 typedef struct _GstCCNxFetchBuffer GstCCNxFetchBuffer;
 
 typedef gboolean (*gst_ccnx_fb_request_cb) (
-    GstCCNxDepacketizer *object, gint64 seg);
+    GstCCNxDepacketizer *object, guint64 seg);
 typedef void (*gst_ccnx_fb_response_cb) (
     GstCCNxDepacketizer *object, struct ccn_charbuf *buf);
 
@@ -44,7 +44,7 @@ struct _GstCCNxFetchBuffer {
   gst_ccnx_fb_request_cb                 mRequester;
   gst_ccnx_fb_response_cb                mResponser;
 
-  /* GHashTable <gint64, ContentObject*> */
+  /* GHashTable <gint64, struct ccn_charbuf*> */
   GHashTable                            *mBuffer;
   gint64                                 mPosition;
   gint64                                 mRequested;

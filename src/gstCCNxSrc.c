@@ -252,7 +252,7 @@ gst_ccnx_src_get_property (GObject * object, guint prop_id,
 static GstCaps* gst_ccnx_src_get_caps (GstBaseSrc* basesrc)
 {
   GstCCNxSrc *src = GST_CCNX_SRC (basesrc);
-  GST_DEBUG (" ----> CALL: gst_caps src->mDepkt %p\n", src->mDepkt);
+  GST_DEBUG ("CALL: gst_caps src->mDepkt %p", src->mDepkt);
   if (src->mDepkt == NULL)
     return NULL;
 
@@ -262,7 +262,7 @@ static GstCaps* gst_ccnx_src_get_caps (GstBaseSrc* basesrc)
 static gboolean
 gst_ccnx_src_start (GstBaseSrc * basesrc)
 {
-  GST_DEBUG (" ----> CALL: gst_start\n");
+  GST_DEBUG ("CALL: gst_start");
   GstCCNxSrc *src = GST_CCNX_SRC (basesrc);
   return gst_ccnx_depkt_start (src->mDepkt);
 }
@@ -270,7 +270,7 @@ gst_ccnx_src_start (GstBaseSrc * basesrc)
 static gboolean
 gst_ccnx_src_stop (GstBaseSrc * basesrc)
 {
-  GST_DEBUG (" ----> CALL: gst_stop\n");
+  GST_DEBUG ("CALL: gst_stop");
   GstCCNxSrc *src = GST_CCNX_SRC (basesrc);
   return gst_ccnx_depkt_stop (src->mDepkt);
 }
@@ -278,14 +278,14 @@ gst_ccnx_src_stop (GstBaseSrc * basesrc)
 static gboolean
 gst_ccnx_src_is_seekable (GstBaseSrc * basesrc)
 {
-  GST_DEBUG (" ----> CALL: is_seekable\n");
+  GST_DEBUG ("CALL: is_seekable");
   return TRUE;
 }
 
 static gboolean
 gst_ccnx_src_unlock (GstBaseSrc * basesrc)
 {
-  GST_DEBUG (" ----> CALL: unlock\n");
+  GST_DEBUG ("CALL: unlock");
   GstCCNxSrc *src = GST_CCNX_SRC (basesrc);
   src->mNoLocking = TRUE;
   return TRUE;
@@ -295,22 +295,25 @@ static GstFlowReturn
 gst_ccnx_src_create (
     GstBaseSrc * basesrc, guint64 offset, guint length, GstBuffer ** buffer)
 {
-  GST_DEBUG (" ----> CALL: create\n");
+  GST_DEBUG ("CALL: create");
   GstCCNxCmd status = GST_CMD_INVALID;
   GstCCNxSrc * src = GST_CCNX_SRC (basesrc);
   GstCCNxDataQueueEntry * data_entry = NULL;
   
   if (src->mNoLocking) {
+    GST_DEBUG ("create: GST_FLOW_WRONG_STATE");
     return GST_FLOW_WRONG_STATE;
   }
   
   while (TRUE) {
     if (g_queue_is_empty (src->mDepkt->mDataQueue)) {
       if (src->mNoLocking) {
+        GST_WARNING ("create: GST_FLOW_WRONG_STATE");
         return GST_FLOW_WRONG_STATE;
       }
       else {
         /* FIXME starving for data, sleep for a while */
+        GST_DEBUG ("starving for data, sleep for a while");
         sleep(GST_CCNX_DEPKT_QUEUE_TIMEOUT);
         continue;
       }
@@ -319,32 +322,42 @@ gst_ccnx_src_create (
     data_entry = (GstCCNxDataQueueEntry *) g_queue_peek_tail (
         src->mDepkt->mDataQueue);
     g_queue_pop_tail (src->mDepkt->mDataQueue);
+
     if (data_entry != NULL) {
       *buffer = data_entry->mData;
       status = data_entry->mState;
       free (data_entry);
     }
+
+    GST_INFO ("got data %p, queueSize=%d", 
+              *buffer, g_queue_get_length (src->mDepkt->mDataQueue));
     
     // TODO multithreading on the queue ???
-    if (src->mNoLocking)
+    if (src->mNoLocking) {
+      GST_WARNING ("GST_FLOW_WRONG_STATE");
       return GST_FLOW_WRONG_STATE;
-
-    if (src->mSeeking >= 0) {
-      if (data_entry->mState != GST_CMD_SEEK) {
-        /* skipping prefetched junk */
-        /* ??? queue.task_done() */
-        continue;
-      }
-      /* pushing seek buufer */
-      GstEvent * event = gst_event_new_new_segment(
-          FALSE, 1.0, GST_FORMAT_TIME,
-          src->mSeeking, -1, src->mSeeking);
-      GstPad * src_pad = gst_element_get_static_pad (
-          &src->mBase.element, "src");
-      gst_pad_push_event (src_pad, event);
-      src->mSeeking = -1;
-      GST_BUFFER_FLAG_SET (*buffer, GST_BUFFER_FLAG_DISCONT);
     }
+
+    //    if (src->mSeeking >= 0) {
+    //      if (data_entry->mState != GST_CMD_SEEK) {
+    //        /* skipping prefetched junk */
+    //        /* ??? queue.task_done() */
+    //        continue;
+    //      }
+    //      /* pushing seek buufer */
+    //      GST_INFO ("pushing seek buffer");
+    //      GstEvent * event = gst_event_new_new_segment(
+    //          FALSE, 1.0, GST_FORMAT_TIME,
+    //          src->mSeeking, -1, src->mSeeking);
+    //      GstPad * src_pad = gst_element_get_static_pad (
+    //          &src->mBase.element, "src");
+    //      gst_pad_push_event (src_pad, event);
+    //      src->mSeeking = -1;
+    //      GST_BUFFER_FLAG_SET (*buffer, GST_BUFFER_FLAG_DISCONT);
+    //    }
+    GST_INFO ("return data %p, queueSize=%d", 
+              data_entry, g_queue_get_length (src->mDepkt->mDataQueue));
+    //    GST_INFO ("mSeeking=%d", src->mSeeking);
     return GST_FLOW_OK;
   }
 }
@@ -352,7 +365,7 @@ gst_ccnx_src_create (
 static gboolean
 gst_ccnx_src_query (GstBaseSrc * basesrc, GstQuery * query)
 {
-  GST_DEBUG (" ----> CALL: query\n");
+  GST_DEBUG ("CALL: query");
 
   if (basesrc == NULL || query == NULL)
     return FALSE;
@@ -371,7 +384,7 @@ gst_ccnx_src_query (GstBaseSrc * basesrc, GstQuery * query)
 static gboolean
 gst_ccnx_src_do_seek (GstBaseSrc *basesrc, GstSegment *segment)
 {
-  GST_DEBUG (" ----> CALL: do_seek\n");
+  GST_WARNING ("do_seek=%d", segment->start);
 
   GstCCNxSrc *src = GST_CCNX_SRC (basesrc);
 
@@ -383,7 +396,7 @@ gst_ccnx_src_do_seek (GstBaseSrc *basesrc, GstSegment *segment)
 static gboolean
 gst_ccnx_src_check_get_range (GstBaseSrc * basesrc)
 {
-  GST_DEBUG (" ----> CALL: get_range\n");
+  GST_DEBUG ("CALL: get_range");
   // TODO
   return FALSE;
 }
@@ -391,7 +404,7 @@ gst_ccnx_src_check_get_range (GstBaseSrc * basesrc)
 static gboolean
 gst_ccnx_src_unlock_stop (GstBaseSrc * basesrc)
 {
-  GST_DEBUG (" ----> CALL: unlock_stop\n");
+  GST_DEBUG ("CALL: unlock_stop");
   GstCCNxSrc *src = GST_CCNX_SRC (basesrc);
   src->mNoLocking = FALSE;
   return TRUE;
@@ -400,7 +413,7 @@ gst_ccnx_src_unlock_stop (GstBaseSrc * basesrc)
 static gboolean
 gst_ccnx_src_query_duration (GstBaseSrc * basesrc)
 {
-  GST_DEBUG (" ----> CALL: query_duration\n");
+  GST_DEBUG ("CALL: query_duration");
   GstCCNxSrc *src = GST_CCNX_SRC (basesrc);
   /* TODO initially used by the player in python code ? */
   if (src->mDepkt)

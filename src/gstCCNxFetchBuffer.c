@@ -20,6 +20,9 @@
 #include <ccn/charbuf.h>
 #include "gstCCNxFetchBuffer.h"
 
+GST_DEBUG_CATEGORY_STATIC (gst_ccnx_fb_debug);
+#define GST_CAT_DEFAULT gst_ccnx_fb_debug
+
 static gint64 gst_ccnx_fb_get_size (GstCCNxFetchBuffer* object);
 static void gst_ccnx_fb_request_data (GstCCNxFetchBuffer* object);
 static void gst_ccnx_fb_push_data (GstCCNxFetchBuffer* object);
@@ -28,12 +31,14 @@ static void gst_ccnx_fb_entry_destroy (void * object);
 void
 gst_ccnx_fb_reset (GstCCNxFetchBuffer* object, gint64 position)
 {
+  GST_DEBUG ("fb_reset\n");
   g_hash_table_remove_all (object->mBuffer);
   object->mPosition = position;
   object->mRequested = position - 1;
   object->mCounter = 0;
 
   gst_ccnx_fb_request_data (object);
+  GST_DEBUG ("fb_reset ... DONE\n");
 }
 
 /*
@@ -70,6 +75,7 @@ gst_ccnx_fb_get_size (GstCCNxFetchBuffer* object)
 static void
 gst_ccnx_fb_request_data (GstCCNxFetchBuffer* object)
 {
+  GST_DEBUG ("request_data");
   gint32 interest_left;
 
   if (object->mCounter == 0)
@@ -80,12 +86,18 @@ gst_ccnx_fb_request_data (GstCCNxFetchBuffer* object)
   object->mCounter = (object->mCounter + 1) % GST_CCNX_COUNTER_STEP;
   gint64 stop = object->mPosition + object->mWindowSize - 1;
 
+  GST_DEBUG ("request_data WTF 1");
+
   while (object->mRequested < stop && interest_left > 0) {
+
+    GST_DEBUG ("request_data WTF 2");
     object->mRequested += 1;
     interest_left -= 1;
 
-    if (! object->mRequester (object->mDepkt, object->mRequested))
+    if (! object->mRequester (object->mDepkt, object->mRequested)) {
       return;
+      GST_DEBUG ("request_data ... DONE");
+    }
   }
 }
 
@@ -112,6 +124,10 @@ GstCCNxFetchBuffer * gst_ccnx_fb_create (
     GstCCNxDepacketizer * depkt, gint32 window,
     gst_ccnx_fb_request_cb req, gst_ccnx_fb_response_cb rep)
 {
+  GST_DEBUG_CATEGORY_INIT (gst_ccnx_fb_debug, "GST_CCNX_DEPKT",
+      4, "Receives video and audio data over a CCNx network");
+  GST_DEBUG ("create\n");
+
   GstCCNxFetchBuffer * object =
       (GstCCNxFetchBuffer *) malloc (sizeof(GstCCNxFetchBuffer));
 

@@ -22,6 +22,9 @@
 #include "gstCCNxUtils.h"
 #include "gstCCNxSegmenter.h"
 
+GST_DEBUG_CATEGORY_STATIC (gst_ccnx_segmenter_debug);
+#define GST_CAT_DEFAULT gst_ccnx_segmenter_debug
+
 GstCCNxPacketHeader* gst_ccnx_packet_header_unpack (
     const struct ccn_charbuf*);
 GstCCNxSegmentHeader* gst_ccnx_segment_header_unpack (
@@ -59,6 +62,7 @@ gst_ccnx_segment_header_unpack (const struct ccn_charbuf * header_buf)
 GstBuffer*
 gst_ccnx_segmenter_to_buffer(const struct ccn_charbuf* segment, gint32 *offset)
 {
+  GST_INFO ("to_buffer");
   struct ccn_charbuf * segment_hdr_buffer = NULL;
   GstCCNxSegmentHeader * segment_hdr = NULL;
   GstBuffer * ret = NULL;
@@ -81,6 +85,8 @@ gst_ccnx_segmenter_to_buffer(const struct ccn_charbuf* segment, gint32 *offset)
   gst_buffer_set_data (ret, segment->buf + start, segment_hdr->mSize);
   ret->timestamp = segment_hdr->mTimestamp;
   ret->duration = segment_hdr->mDuration;
+  GST_INFO ("to_buffer ... timestamp=%llu, duration=%llu", 
+            ret->timestamp, ret->duration);
 
   *offset = end;
 
@@ -89,6 +95,8 @@ ret_state:
   ccn_charbuf_destroy (&segment_hdr_buffer);
   if (segment_hdr)
     free (segment_hdr);
+
+  GST_INFO ("to_buffer ... DONE %p", ret);
   return ret;
 }
 
@@ -98,13 +106,17 @@ GstCCNxSegmenter *
 gst_ccnx_segmenter_create (
     GstCCNxDepacketizer * depkt, gst_ccnx_seg_callback func, guint32 max_size)
 {
+  GST_DEBUG_CATEGORY_INIT (gst_ccnx_segmenter_debug, "GST_CCNX_SEGMENTER",
+      3, "Receives video and audio data over a CCNx network");
+
+  GST_DEBUG ("create\n");
   GstCCNxSegmenter * obj =
       (GstCCNxSegmenter*) malloc (sizeof(GstCCNxSegmenter));
 
   obj->mDepkt = depkt;
   obj->mCallback = func;
   obj->mMaxSize = max_size - GST_CCNX_PACKET_HDR_LEN;
-  obj->mPktContent = ccn_charbuf_create();
+  obj->mPktContent = NULL;
   obj->mPktElements = 0;
   obj->mPktElementOff = 0;
   obj->mPktLost = FALSE;
@@ -142,6 +154,7 @@ void gst_ccnx_segmenter_pkt_lost (GstCCNxSegmenter* obj)
 void gst_ccnx_segmenter_process_pkt (
     GstCCNxSegmenter* obj, const struct ccn_charbuf* pkt_buffer)
 {
+  GST_DEBUG ("process_pkt");
   struct ccn_charbuf * hdr_buffer = NULL;
   GstCCNxPacketHeader * pkt_header = NULL;
   GstBuffer * buf = NULL;
@@ -181,4 +194,5 @@ void gst_ccnx_segmenter_process_pkt (
   /* clean up memory */
   ccn_charbuf_destroy (&hdr_buffer);
   free (pkt_header);
+  GST_DEBUG ("process_pkt ... DONE");
 }
